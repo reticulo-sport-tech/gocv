@@ -57,8 +57,8 @@ deps_debian:
 	sudo apt-get -y install $(DEBS)
 
 deps_ubuntu_jammy:
-	sudo apt-get -y update
-	sudo apt-get -y install $(DEBS_UBUNTU_JAMMY)
+	apt-get -y update
+	apt-get -y install $(DEBS_UBUNTU_JAMMY)
 
 deps_jetson:
 	sudo sh -c "echo '/usr/local/cuda/lib64' >> /etc/ld.so.conf.d/nvidia-tegra.conf"
@@ -292,6 +292,13 @@ sudo_install:
 	cd $(TMP_DIR)opencv/opencv-$(OPENCV_VERSION)/build
 	sudo $(MAKE) install
 	sudo ldconfig
+	cd -
+
+# Install system wide.
+non_sudo_install:
+	cd $(TMP_DIR)opencv/opencv-$(OPENCV_VERSION)/build
+	$(MAKE) install
+	ldconfig
 	cd -
 
 # Install system wide.
