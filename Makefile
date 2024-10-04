@@ -66,8 +66,8 @@ deps_debian:
 	sudo apt-get -y install $(DEBS)
 
 deps_ubuntu_jammy:
-	sudo apt-get -y update
-	sudo apt-get -y install $(DEBS_UBUNTU_JAMMY)
+	apt-get -y update
+	apt-get -y install $(DEBS_UBUNTU_JAMMY)
 
 deps_jetson:
 	sudo sh -c "echo '/usr/local/cuda/lib64' >> /etc/ld.so.conf.d/nvidia-tegra.conf"
@@ -283,6 +283,14 @@ install_jetson: deps download sudo_pre_install_clean build_jetson sudo_install c
 
 # Do everything with cuda.
 install_cuda: deps download sudo_pre_install_clean build_cuda sudo_install clean verify verify_cuda
+
+
+# Install system wide.
+non_sudo_install:
+	cd $(TMP_DIR)opencv/opencv-$(OPENCV_VERSION)/build
+	$(MAKE) install
+	ldconfig
+	cd -
 
 # Do everything with openvino.
 install_openvino: deps download download_openvino sudo_pre_install_clean build_openvino_package sudo_install_openvino build_openvino sudo_install clean verify_openvino
