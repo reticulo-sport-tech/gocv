@@ -119,7 +119,7 @@ const (
 )
 
 // VideoCaptureProperties are the properties used for VideoCapture operations.
-type VideoCaptureProperties int
+type VideoCaptureProperties int32
 
 const (
 	// VideoCapturePosMsec contains current position of the
@@ -288,6 +288,63 @@ const (
 	VideoCaptureHWDevice VideoCaptureProperties = 51
 )
 
+// VideoWriterProperty
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/d4/d15/group__videoio__flags__base.html#ga41c5cfa7859ae542b71b1d33bbd4d2b4
+type VideoWriterProperty int
+
+const (
+	// VideoWriterQuality Current quality (0..100%) of the encoded videostream.
+	// Can be adjusted dynamically in some codecs.
+	VideoWriterQuality VideoWriterProperty = 1
+
+	// VideoWriterFramebytes (Read-only): Size of just encoded video frame.
+	// Note that the encoding order may be different from representation order.
+	VideoWriterFramebytes VideoWriterProperty = 2
+
+	// VideoWriterNstripes Number of stripes for parallel encoding. -1 for auto detection.
+	VideoWriterNstripes VideoWriterProperty = 3
+
+	// VideoWriterIsColor If it is not zero, the encoder will expect and encode color frames,
+	// otherwise it will work with grayscale frames.
+	VideoWriterIsColor VideoWriterProperty = 4
+
+	// VideoWriterDepth Defaults to CV8U.
+	VideoWriterDepth VideoWriterProperty = 5
+
+	// VideoWriterHwAcceleration (open-only) Hardware acceleration type
+	// (see https://docs.opencv.org/4.x/dc/dfc/group__videoio__flags__others.html#gaf61f8388a47aad88cd82cbda6d52c391).
+	// Setting supported only via params parameter in VideoWriterFileWithAPIParams.
+	// Default value is backend-specific.
+	VideoWriterHwAcceleration VideoWriterProperty = 6
+
+	// VideoWriterHwDevice (open-only) Hardware device index (select GPU if multiple available).
+	// Device enumeration is acceleration type specific.
+	VideoWriterHwDevice VideoWriterProperty = 7
+
+	// VideoWriterHwAccelerationUseOpencl open-only) If non-zero, create new OpenCL context and bind it to current thread.
+	VideoWriterHwAccelerationUseOpencl VideoWriterProperty = 8
+
+	// VideoWriterRawVideo (open-only) Set to non-zero to enable encapsulation of an encoded raw video stream.
+	VideoWriterRawVideo VideoWriterProperty = 9
+
+	// VideoWriterKeyInterval (open-only) Set the key frame interval using raw video encapsulation
+	// (VideoWriterRawVideo != 0). Defaults to 1 when not set. FFmpeg back-end only.
+	VideoWriterKeyInterval VideoWriterProperty = 10
+
+	// VideoWriterKeyFlag Set to non-zero to signal that the following frames are key frames or zero if not,
+	// when encapsulating raw video (VideoWriterRawVideo != 0). FFmpeg back-end only.
+	VideoWriterKeyFlag VideoWriterProperty = 11
+
+	// VideoWriterPts Specifies the frame presentation timestamp for each frame using the FPS time base.
+	VideoWriterPts VideoWriterProperty = 12
+
+	// VideoWriterDtsDelay Specifies the maximum difference between presentation (pts)
+	// and decompression timestamps (dts) using the FPS time base.
+	VideoWriterDtsDelay VideoWriterProperty = 13
+)
+
 // VideoCapture is a wrapper around the OpenCV VideoCapture class.
 //
 // For further details, please see:
@@ -408,8 +465,8 @@ func (v *VideoCapture) Read(m *Mat) bool {
 }
 
 // Grab skips a specific number of frames.
-func (v *VideoCapture) Grab(skip int) {
-	C.VideoCapture_Grab(v.p, C.int(skip))
+func (v *VideoCapture) Grab(skip int) error {
+	return OpenCVResult(C.VideoCapture_Grab(v.p, C.int(skip)))
 }
 
 // Retrieve decodes and returns the grabbed video frame. Should be used after Grab
@@ -475,7 +532,72 @@ func VideoWriterFile(name string, codec string, fps float64, width int, height i
 	cCodec := C.CString(codec)
 	defer C.free(unsafe.Pointer(cCodec))
 
-	C.VideoWriter_Open(vw.p, cName, cCodec, C.double(fps), C.int(width), C.int(height), C.bool(isColor))
+	err = OpenCVResult(C.VideoWriter_Open(vw.p, cName, cCodec, C.double(fps), C.int(width), C.int(height), C.bool(isColor)))
+	return
+}
+
+// VideoWriterFileWithAPI opens a VideoWriter with a specific output file.
+// The "codec" param should be the four-letter code for the desired output
+// codec, for example "MJPG".
+//
+// For further details, please see:
+// http://docs.opencv.org/master/dd/d9e/classcv_1_1VideoWriter.html#a0901c353cd5ea05bba455317dab81130
+func VideoWriterFileWithAPI(name string, apiPreference VideoCaptureAPI, codec string, fps float64, width int, height int, isColor bool) (vw *VideoWriter, err error) {
+
+	if fps == 0 || width == 0 || height == 0 {
+		return nil, fmt.Errorf("one of the numerical parameters "+
+			"is equal to zero: FPS: %f, width: %d, height: %d", fps, width, height)
+	}
+
+	vw = &VideoWriter{
+		p:  C.VideoWriter_New(),
+		mu: &sync.RWMutex{},
+	}
+
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	cCodec := C.CString(codec)
+	defer C.free(unsafe.Pointer(cCodec))
+
+	err = OpenCVResult(C.VideoWriter_OpenWithAPI(vw.p, cName, C.int(apiPreference), cCodec, C.double(fps), C.int(width), C.int(height), C.bool(isColor)))
+	return
+}
+
+// VideoWriterFileWithAPIParams opens a VideoWriter with a specific output file.
+// The "codec" param should be the four-letter code for the desired output
+// codec, for example "MJPG".
+//
+// For further details, please see:
+// http://docs.opencv.org/master/dd/d9e/classcv_1_1VideoWriter.html#a0901c353cd5ea05bba455317dab81130
+func VideoWriterFileWithAPIParams(name string, apiPreference VideoCaptureAPI, codec string, fps float64, width int, height int, params []VideoWriterProperty) (vw *VideoWriter, err error) {
+
+	if fps == 0 || width == 0 || height == 0 {
+		return nil, fmt.Errorf("one of the numerical parameters "+
+			"is equal to zero: FPS: %f, width: %d, height: %d", fps, width, height)
+	}
+
+	vw = &VideoWriter{
+		p:  C.VideoWriter_New(),
+		mu: &sync.RWMutex{},
+	}
+
+	c_name := C.CString(name)
+	defer C.free(unsafe.Pointer(c_name))
+
+	c_codec := C.CString(codec)
+	defer C.free(unsafe.Pointer(c_codec))
+
+	c_ints := make([]C.int, len(params))
+	for i := range params {
+		c_ints[i] = C.int(params[i])
+	}
+
+	c_params := C.IntVector{
+		val:    unsafe.SliceData(c_ints),
+		length: C.int(len(params)),
+	}
+	err = OpenCVResult(C.VideoWriter_OpenWithAPIParams(vw.p, c_name, C.int(apiPreference), c_codec, C.double(fps), C.int(width), C.int(height), c_params))
 	return
 }
 
@@ -502,8 +624,7 @@ func (vw *VideoWriter) IsOpened() bool {
 func (vw *VideoWriter) Write(img Mat) error {
 	vw.mu.Lock()
 	defer vw.mu.Unlock()
-	C.VideoWriter_Write(vw.p, img.p)
-	return nil
+	return OpenCVResult(C.VideoWriter_Write(vw.p, img.p))
 }
 
 // OpenVideoCapture return VideoCapture specified by device ID if v is a
@@ -559,4 +680,166 @@ func OpenVideoCaptureWithAPIParams(v interface{}, apiPreference VideoCaptureAPI,
 	default:
 		return nil, errors.New("argument must be int or string")
 	}
+}
+
+type VideoRegistryType struct{}
+
+// VideoRegistry
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html
+var VideoRegistry VideoRegistryType
+
+// GetBackendName Returns backend API name or "UnknownVideoAPI(xxx)".
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#ga6723e68832186e20bd44cd3c2b0d8c60
+func (VideoRegistryType) GetBackendName(api VideoCaptureAPI) string {
+
+	c_name := C.Videoio_Registry_GetBackendName(C.int(api))
+	defer C.free(unsafe.Pointer(c_name))
+
+	name := C.GoString(c_name)
+	return name
+}
+
+// GetBackends Returns list of all available backends.
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#ga973abd27c3ea165472f789fa511d9f7b
+func (VideoRegistryType) GetBackends() []VideoCaptureAPI {
+	intVec := C.Videio_Registry_GetBackends()
+	defer C.IntVector_Close(intVec)
+
+	c_ints := unsafe.Slice(intVec.val, int(intVec.length))
+
+	ints := make([]VideoCaptureAPI, len(c_ints))
+
+	for i, val := range c_ints {
+		ints[i] = VideoCaptureAPI(int(val))
+	}
+	return ints
+}
+
+// GetCameraBackendPluginVersion Returns description and ABI/API version of videoio plugin's camera interface.
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#gab36e3e19ab2396410b74046de141323c
+func (VideoRegistryType) GetCameraBackendPluginVersion(api VideoCaptureAPI) (string, int, int) {
+	var (
+		version_abi C.int
+		version_api C.int
+	)
+
+	c_desc := C.Videoio_Registry_GetCameraBackendPluginVersion(C.int(api), &version_abi, &version_api)
+	defer C.free(unsafe.Pointer(c_desc))
+	desc := C.GoString(c_desc)
+
+	return desc, int(version_abi), int(version_api)
+}
+
+// GetCameraBackends Returns list of available backends which works via gocv.VideoCapture(int index)
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#ga043347faf6f5590b867a8b621906f7a9
+func (VideoRegistryType) GetCameraBackends() []VideoCaptureAPI {
+	intVec := C.Videoio_Registry_GetCameraBackends()
+	defer C.IntVector_Close(intVec)
+
+	c_ints := unsafe.Slice(intVec.val, int(intVec.length))
+
+	ints := make([]VideoCaptureAPI, len(c_ints))
+
+	for i, val := range c_ints {
+		ints[i] = VideoCaptureAPI(int(val))
+	}
+	return ints
+}
+
+// GetStreamBackendPluginVersion Returns description and ABI/API version of videoio plugin's stream capture interface
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#gadf3c0c355f0917ccf754ac1af79d605a
+func (VideoRegistryType) GetStreamBackendPluginVersion(api VideoCaptureAPI) (string, int, int) {
+	var (
+		version_abi C.int
+		version_api C.int
+	)
+
+	c_desc := C.Videoio_Registry_GetStreamBackendPluginVersion(C.int(api), &version_abi, &version_api)
+	defer C.free(unsafe.Pointer(c_desc))
+	desc := C.GoString(c_desc)
+
+	return desc, int(version_abi), int(version_api)
+}
+
+// GetStreamBackends Returns list of available backends which works via gocv.VideoCapture(filename string)
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#ga29296d4c06ed9a9ff8bddae9fe581de1
+func (VideoRegistryType) GetStreamBackends() []VideoCaptureAPI {
+	intVec := C.Videoio_Registry_GetStreamBackends()
+	defer C.IntVector_Close(intVec)
+
+	c_ints := unsafe.Slice(intVec.val, int(intVec.length))
+
+	ints := make([]VideoCaptureAPI, len(c_ints))
+
+	for i, val := range c_ints {
+		ints[i] = VideoCaptureAPI(int(val))
+	}
+	return ints
+}
+
+// GetWriterBackendPluginVersion Returns description and ABI/API version of videoio plugin's writer interface.
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#gac41a544552a08bf3dc8142d687fbe4e5
+func (VideoRegistryType) GetWriterBackendPluginVersion(api VideoCaptureAPI) (string, int, int) {
+	var (
+		version_abi C.int
+		version_api C.int
+	)
+
+	c_desc := C.Videoio_Registry_GetWriterBackendPluginVersion(C.int(api), &version_abi, &version_api)
+	defer C.free(unsafe.Pointer(c_desc))
+	desc := C.GoString(c_desc)
+
+	return desc, int(version_abi), int(version_api)
+}
+
+// GetWriterBackends Returns list of available backends which works via gocv.VideoWriter()
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#gaed03e49e6a45ca5b20afe1b9f78955e0
+func (VideoRegistryType) GetWriterBackends() []VideoCaptureAPI {
+	intVec := C.Videoio_Registry_GetWriterBackends()
+	defer C.IntVector_Close(intVec)
+
+	c_ints := unsafe.Slice(intVec.val, int(intVec.length))
+
+	ints := make([]VideoCaptureAPI, len(c_ints))
+
+	for i, val := range c_ints {
+		ints[i] = VideoCaptureAPI(int(val))
+	}
+	return ints
+}
+
+// HasBackend Returns true if backend is available.
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#ga9068310d50ef430c2f5f6b185a99a24b
+func (VideoRegistryType) HasBackend(api VideoCaptureAPI) bool {
+	b := C.Videoio_Registry_HasBackend(C.int(api))
+	return bool(b)
+}
+
+// IsBackendBuiltIn Returns true if backend is built in (false if backend is used as plugin)
+//
+// For further details, please see:
+// https://docs.opencv.org/4.x/de/db1/group__videoio__registry.html#gadf24ec0854bb893a75591306ad9f3878
+func (VideoRegistryType) IsBackendBuiltIn(api VideoCaptureAPI) bool {
+	b := C.Videoio_Registry_IsBackendBuiltIn(C.int(api))
+	return bool(b)
 }

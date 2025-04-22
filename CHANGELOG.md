@@ -1,3 +1,98 @@
+0.41.0
+---
+* **all**
+    - opencv: patch for gstreamer cmake to handle static linking
+- **bugfix**
+    - correct ifndef for wrappers to avoid include conflcts
+    - temporary fix for https://github.com/docker/setup-qemu-action/issues/198
+- **core**
+    - add exception handling functions and try/catch blocks
+    - return error from calls to OpenCV functions that cause exceptions. The error shows the OpenCV exception description from the exception caught.
+- **features2d**
+    - Add BRISK with params support (#1280)
+    - Params for features2d (#1283)
+- **photo**
+    - add Decolor() function
+- **video**
+    - ApplyWithParams for MOG2 bg subtractor (#1284)
+- **build**
+    - add manually launched workflows to build ffmpeg, gstreamer, and opencv docker images
+    - add `Dockerfile.opencv-ubuntu-24.04` for Ubuntu 24.04 support
+    - add `opencv-ubuntu-24-04` step for build img workflow
+- **docker**
+    - add static image with opencv and ffmpeg without gstreamer
+    - gstreamer with a specific set of plugins
+    - use OpenCV patch to build fully static GStreamer with plugins included
+- **docs**
+    - update ROADMAP for some functions that were completed already
+    - Update wrong links in Readme for face detection from URL and find chessboard
+- **make**
+    - add install task for Ubuntu Manic Minotaur using @chewxy PR #1157
+    - update make tasks for jetson based on latest available info
+    - Update Makefile (#1276)
+
+0.40.0
+---
+* **all**
+    - Add support for OpenCV 4.11.0
+    - Update license year to 2025
+- **bugfix**
+    - Correct signature for FindHomography, since dst is actually target format for the operation, not something changed by the operation
+- **core**
+    - Added new Mat constructor and tests
+    - Added NewMatFromPoint2fVector function
+- **videoio**
+    - Change type of VideoCaptureProperties to int32
+    - Added VideoWriterFile with API and API Params
+- **docker**
+    - Alpine static improved (#1243)
+- **make**
+    - Improve Linux distro dtection code, and add specific dependendcies for Ubunutu 24.04
+- **examples**
+    - GStreamer VideoWriter example
+- **build**
+    - Update homebrew when running macOS tests
+    - Update GH actions in linux build to latest versions
+
+0.39.0
+---
+- **bugfix**
+  - Fixed MinGW link typo in README.md.
+  - Fixed function name typo (#1236).
+- **core**
+  - Added `FaceDetectorYN` example.
+  - Query I/O API backends registry (#1237).
+  - Face detector YN face recognizer SF (#1232).
+- **cuda**
+  - Added `createLookUpTable` and `split` functions.
+  - Added missing CUDA `imgproc` standalone functions.
+  - Added `XXXWithStream` standalone functions.
+- **docker**
+  - Added Dockerfile for container that can perform static builds of your own GoCV project (HighGUI not supported by static builds).
+  - Added Dockerfile example showing how to build using static linking.
+  - Added static build examples.
+  - Updated version for `gocv-static-builder` image.
+- **build**
+  - Updated workflow for Docker builds to latest versions.
+  - Used most recent NVIDIA CUDA base image.
+  - Used static FFmpeg build for static OpenCV build.
+  - Downgraded static build to Go 1.22 to avoid [Go issue #68976](https://github.com/golang/go/issues/68976).
+  - Modified Dockerfile used for static builds to build own versions for static linking.
+  - Corrected build options for OpenCV on arm64 for static builds.
+  - Separated build tags and linker flags for arm64 and amd64 targets.
+  - Modified LDFLAGS for correct static compilation.
+  - Removed extra file to clear space for static build/standard dev build images.
+  - Added options for Linux arm64 and separate Darwin builds.
+- **cgo**
+  - Changed tags for static OpenCV to `opencvstatic`.
+  - Added options for Linux arm64 and separate Darwin builds.
+  - Removed unneeded lib from link for Linux/arm64.
+  - Modified LDFLAGS for correct static compilation.
+- **docs**
+  - Added missing `videoio` functions to ROADMAP.
+  - Updated ROADMAP with missing `objdetect` functions for DNN faces, and moved `aruco` under `objdetect` module.
+  - Simplified the YOLO example.
+
 0.38.0
 ---
 * **bugfix**

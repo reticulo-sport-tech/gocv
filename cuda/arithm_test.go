@@ -29,6 +29,28 @@ func TestAbs(t *testing.T) {
 	}
 }
 
+func TestAbsException(t *testing.T) {
+	src := gocv.NewMat()
+	defer src.Close()
+
+	var cimg, dimg = NewGpuMat(), NewGpuMat()
+	defer cimg.Close()
+	defer dimg.Close()
+
+	cimg.Upload(src)
+
+	dest := gocv.NewMat()
+	defer dest.Close()
+
+	err := Abs(cimg, &dimg)
+	if err == nil {
+		t.Error("Expected exception in test")
+	}
+	if len(err.Error()) == 0 {
+		t.Error("Expected exception message in test")
+	}
+}
+
 func TestAbsWithStream(t *testing.T) {
 	src := gocv.IMRead("../images/gocvlogo.jpg", gocv.IMReadColor)
 	if src.Empty() {
@@ -714,4 +736,98 @@ func TestCopyMakeBorderWithStream(t *testing.T) {
 	if dest.Empty() {
 		t.Error("Invalid CopyMakeBorderWithStream test")
 	}
+}
+
+func TestNewLookUpTable(t *testing.T) {
+
+	m := NewGpuMatWithSize(1, 256, gocv.MatTypeCV8U)
+	defer m.Close()
+
+	lt := NewLookUpTable(m)
+	defer lt.Close()
+
+}
+
+func TestLookUpTableEmpty(t *testing.T) {
+	m := NewGpuMatWithSize(1, 256, gocv.MatTypeCV8U)
+	defer m.Close()
+
+	lt := NewLookUpTable(m)
+	defer lt.Close()
+
+	lt.Empty()
+}
+
+func TestTransform(t *testing.T) {
+
+	src := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC3)
+	defer src.Close()
+
+	dst := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC3)
+	defer dst.Close()
+
+	m := NewGpuMatWithSize(1, 256, gocv.MatTypeCV8U)
+	defer m.Close()
+
+	lt := NewLookUpTable(m)
+	defer lt.Close()
+
+	lt.Transform(src, &dst)
+}
+
+func TestTransformWithStream(t *testing.T) {
+
+	src := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC3)
+	defer src.Close()
+
+	dst := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC3)
+	defer dst.Close()
+
+	m := NewGpuMatWithSize(1, 256, gocv.MatTypeCV8U)
+	defer m.Close()
+
+	lt := NewLookUpTable(m)
+	defer lt.Close()
+
+	s := NewStream()
+	defer s.Close()
+
+	lt.TransformWithStream(src, &dst, s)
+	s.WaitForCompletion()
+}
+
+func TestSplit(t *testing.T) {
+
+	m := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC2)
+	defer m.Close()
+
+	m0 := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC1)
+	defer m0.Close()
+
+	m1 := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC1)
+	defer m1.Close()
+
+	mats := []GpuMat{m0, m1}
+
+	Split(m, mats)
+}
+
+func TestSplitWithStream(t *testing.T) {
+
+	m := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC2)
+	defer m.Close()
+
+	m0 := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC1)
+	defer m0.Close()
+
+	m1 := NewGpuMatWithSize(256, 256, gocv.MatTypeCV8UC1)
+	defer m1.Close()
+
+	mats := []GpuMat{m0, m1}
+
+	s := NewStream()
+	defer s.Close()
+
+	SplitWithStream(m, mats, s)
+	s.WaitForCompletion()
 }

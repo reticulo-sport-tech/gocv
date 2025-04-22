@@ -2,13 +2,13 @@
 .PHONY: test deps download build clean astyle cmds docker
 
 # GoCV version to use.
-GOCV_VERSION?="v0.38.0"
+GOCV_VERSION?="v0.41.0"
 
 # OpenCV version to use.
-OPENCV_VERSION?=4.10.0
+OPENCV_VERSION?=4.11.0
 
 # Go version to use when building Docker image
-GOVERSION?=1.22.4
+GOVERSION?=1.23.4
 
 # Temporary directory to put files into.
 TMP_DIR?=/tmp/
@@ -21,7 +21,9 @@ RPMS=cmake curl wget git gtk2-devel libpng-devel libjpeg-devel libtiff-devel tbb
 DEBS=unzip wget build-essential cmake curl git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-22-dev libharfbuzz-dev libfreetype6-dev
 DEBS_BOOKWORM=unzip wget build-essential cmake curl git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev libtbbmalloc2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libharfbuzz-dev libfreetype6-dev
 DEBS_UBUNTU_JAMMY=unzip wget build-essential cmake curl git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-dev libharfbuzz-dev libfreetype6-dev
-JETSON=build-essential cmake git unzip pkg-config libjpeg-dev libpng-dev libtiff-dev libavcodec-dev libavformat-dev libswscale-dev libgtk2.0-dev libcanberra-gtk* libxvidcore-dev libx264-dev libgtk-3-dev libtbb2 libtbb-dev libdc1394-22-dev libv4l-dev v4l-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libavresample-dev libvorbis-dev libxine2-dev libfaac-dev libmp3lame-dev libtheora-dev libopencore-amrnb-dev libopencore-amrwb-dev libopenblas-dev libatlas-base-dev libblas-dev liblapack-dev libeigen3-dev gfortran libhdf5-dev protobuf-compiler libprotobuf-dev libgoogle-glog-dev libgflags-dev
+DEBS_UBUNTU_MANTIC=unzip wget build-essential cmake curl git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev libtbbmalloc2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-dev libharfbuzz-dev libfreetype6-dev
+DEBS_UBUNTU_NUMBAT=unzip wget build-essential cmake curl git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-dev libharfbuzz-dev libfreetype-dev
+JETSON=build-essential cmake git unzip pkg-config libjpeg-dev libpng-dev libtiff-dev libavcodec-dev libavformat-dev libswscale-dev libgtk2.0-dev libcanberra-gtk* libxvidcore-dev libx264-dev libgtk-3-dev libtbb2 libtbb-dev libdc1394-dev libv4l-dev v4l-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libavresample-dev libvorbis-dev libxine2-dev libfaac-dev libmp3lame-dev libtheora-dev libopencore-amrnb-dev libopencore-amrwb-dev libopenblas-dev libatlas-base-dev libblas-dev liblapack-dev libeigen3-dev gfortran libhdf5-dev protobuf-compiler libprotobuf-dev libgoogle-glog-dev libgflags-dev
 
 explain:
 	@echo "For quick install with typical defaults of both OpenCV and GoCV, run 'make install'"
@@ -30,21 +32,25 @@ explain:
 distro_deps=
 ifneq ($(shell which dnf 2>/dev/null),)
 	distro_deps=deps_fedora
-else
-ifneq ($(shell which apt-get 2>/dev/null),)
-ifneq ($(shell cat /etc/os-release 2>/dev/null | grep "Jammy Jellyfish"),)
-	distro_deps=deps_ubuntu_jammy
-else
-ifneq ($(shell cat /etc/debian_version 2>/dev/null | grep "12."),)
-	distro_deps=deps_debian_bookworm
-else
-	distro_deps=deps_debian
 endif
-endif
-else
 ifneq ($(shell which yum 2>/dev/null),)
 	distro_deps=deps_rh_centos
 endif
+ifneq ($(shell which apt-get 2>/dev/null),)
+ifneq ($(shell cat /etc/os-release 2>/dev/null | grep "Jammy Jellyfish"),)
+	distro_deps=deps_ubuntu_jammy
+endif
+ifneq ($(shell cat /etc/os-release 2>/dev/null | grep "Mantic Minotaur"),)
+	distro_deps=deps_ubuntu_mantic
+endif
+ifneq ($(shell cat /etc/os-release 2>/dev/null | grep "Noble Numbat"),)
+	distro_deps=deps_ubuntu_numbat
+endif
+ifneq ($(shell cat /etc/debian_version 2>/dev/null | grep "11."),)
+	distro_deps=deps_debian_bullseye
+endif
+ifneq ($(shell cat /etc/debian_version 2>/dev/null | grep "12."),)
+	distro_deps=deps_debian_bookworm
 endif
 endif
 
@@ -61,13 +67,21 @@ deps_debian_bookworm:
 	sudo apt-get -y update
 	sudo apt-get -y install $(DEBS_BOOKWORM)
 
-deps_debian:
+deps_debian_bullseye:
 	sudo apt-get -y update
-	sudo apt-get -y install $(DEBS)
+	sudo apt-get -y install $(DEBS_BULLSEYE)
 
 deps_ubuntu_jammy:
 	apt-get -y update
 	apt-get -y install $(DEBS_UBUNTU_JAMMY)
+
+deps_ubuntu_mantic:
+	sudo apt-get -y update
+	sudo apt-get -y install $(DEBS_UBUNTU_MANTIC)
+
+deps_ubuntu_numbat:
+	sudo apt-get -y update
+	sudo apt-get -y install $(DEBS_UBUNTU_NUMBAT)
 
 deps_jetson:
 	sudo sh -c "echo '/usr/local/cuda/lib64' >> /etc/ld.so.conf.d/nvidia-tegra.conf"
@@ -214,7 +228,7 @@ build_cuda:
 	mkdir build
 	cd build
 	rm -rf *
-	cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local -D BUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} -D OPENCV_EXTRA_MODULES_PATH=$(TMP_DIR)opencv/opencv_contrib-$(OPENCV_VERSION)/modules -D BUILD_DOCS=OFF -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=ON -D BUILD_opencv_java=NO -D BUILD_opencv_python=NO -D BUILD_opencv_python2=NO -D BUILD_opencv_python3=NO -D WITH_JASPER=OFF -D WITH_TBB=ON -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_CUDA=ON -DENABLE_FAST_MATH=1 -DCUDA_FAST_MATH=1 -DWITH_CUBLAS=ON -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda/ -DBUILD_opencv_cudacodec=OFF -D WITH_CUDNN=ON -D OPENCV_DNN_CUDA=ON -D CUDA_GENERATION=Auto -DOPENCV_ENABLE_NONFREE=ON -D WITH_GSTREAMER=OFF ..
+	cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local -D BUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} -D OPENCV_EXTRA_MODULES_PATH=$(TMP_DIR)opencv/opencv_contrib-$(OPENCV_VERSION)/modules -D BUILD_DOCS=OFF -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=ON -D BUILD_opencv_java=NO -D BUILD_opencv_python=NO -D BUILD_opencv_python2=NO -D BUILD_opencv_python3=NO -D WITH_JASPER=OFF -D WITH_TBB=ON -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_CUDA=ON -DENABLE_FAST_MATH=1 -DCUDA_FAST_MATH=1 -DWITH_CUBLAS=ON -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda/ -DBUILD_opencv_cudacodec=OFF -D WITH_CUDNN=ON -D OPENCV_DNN_CUDA=ON -D CUDA_GENERATION=Auto -DOPENCV_ENABLE_NONFREE=ON -D WITH_GSTREAMER=ON ..
 	$(MAKE) -j $(shell nproc --all --ignore 1)
 	$(MAKE) preinstall
 	cd -
@@ -270,7 +284,14 @@ endif
 endif
 
 # Do everything.
-install: deps download sudo_pre_install_clean build sudo_install clean verify
+install:
+ifeq ($(shell uname -s),Darwin)
+	@echo "Detected macOS. Installing dependencies..."
+	brew install opencv
+	brew install pkgconfig
+endif
+	@$(MAKE) deps download sudo_pre_install_clean build sudo_install clean verify
+	@go run ./cmd/version/main.go
 
 # Do everything on Raspbian.
 install_raspi: deps download sudo_pre_install_clean build_raspi sudo_install clean verify
@@ -279,7 +300,7 @@ install_raspi: deps download sudo_pre_install_clean build_raspi sudo_install cle
 install_raspi_zero: deps download sudo_pre_install_clean build_raspi_zero sudo_install clean verify
 
 # Do everything on Jetson.
-install_jetson: deps download sudo_pre_install_clean build_jetson sudo_install clean verify
+install_jetson: deps_jetson download sudo_pre_install_clean build_jetson sudo_install clean verify
 
 # Do everything with cuda.
 install_cuda: deps download sudo_pre_install_clean build_cuda sudo_install clean verify verify_cuda
@@ -334,9 +355,34 @@ verify_cuda:
 verify_openvino:
 	go run -tags openvino ./cmd/version/main.go
 
+# testdata.
+.PHONY: create_testdata_dir download_wechat_testdata download_onnx_testdata download_goturn_testdata testdata
+create_testdata_dir:
+	mkdir -p ./testdata
+
+download_wechat_testdata: create_testdata_dir
+	curl -sL https://raw.githubusercontent.com/WeChatCV/opencv_3rdparty/wechat_qrcode/detect.caffemodel > ./testdata/detect.caffemodel
+	curl -sL https://raw.githubusercontent.com/WeChatCV/opencv_3rdparty/wechat_qrcode/detect.prototxt > ./testdata/detect.prototxt
+	curl -sL https://raw.githubusercontent.com/WeChatCV/opencv_3rdparty/wechat_qrcode/sr.caffemodel > ./testdata/sr.caffemodel
+	curl -sL https://raw.githubusercontent.com/WeChatCV/opencv_3rdparty/wechat_qrcode/sr.prototxt > ./testdata/sr.prototxt
+
+download_onnx_testdata: create_testdata_dir
+	curl -sL https://github.com/onnx/models/raw/main/validated/vision/classification/inception_and_googlenet/googlenet/model/googlenet-9.onnx > ./testdata/googlenet-9.onnx
+	curl -sL https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx > ./testdata/face_recognition_sface_2021dec.onnx
+	curl -sL https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx > ./testdata/face_detection_yunet_2023mar.onnx
+
+download_goturn_testdata: create_testdata_dir
+	curl -sL https://raw.githubusercontent.com/opencv/opencv_extra/c4219d5eb3105ed8e634278fad312a1a8d2c182d/testdata/tracking/goturn.prototxt > ./testdata/goturn.prototxt
+	curl -sL https://github.com/opencv/opencv_extra/raw/c4219d5eb3105ed8e634278fad312a1a8d2c182d/testdata/tracking/goturn.caffemodel.zip.001 > ./testdata/goturn.caffemodel.zip.001
+	curl -sL https://github.com/opencv/opencv_extra/raw/c4219d5eb3105ed8e634278fad312a1a8d2c182d/testdata/tracking/goturn.caffemodel.zip.002 > ./testdata/goturn.caffemodel.zip.002
+	curl -sL https://github.com/opencv/opencv_extra/raw/c4219d5eb3105ed8e634278fad312a1a8d2c182d/testdata/tracking/goturn.caffemodel.zip.003 > ./testdata/goturn.caffemodel.zip.003
+	curl -sL https://github.com/opencv/opencv_extra/raw/c4219d5eb3105ed8e634278fad312a1a8d2c182d/testdata/tracking/goturn.caffemodel.zip.004 > ./testdata/goturn.caffemodel.zip.004
+	cat ./testdata/goturn.caffemodel.zip.001 ./testdata/goturn.caffemodel.zip.002 ./testdata/goturn.caffemodel.zip.003 ./testdata/goturn.caffemodel.zip.004 > ./testdata/goturn.caffemodel.zip
+	unzip -o ./testdata/goturn.caffemodel.zip goturn.caffemodel -d ./testdata
+
+testdata: create_testdata_dir download_wechat_testdata download_onnx_testdata download_goturn_testdata
+
 # Runs tests.
-# This assumes env.sh was already sourced.
-# pvt is not tested here since it requires additional depenedences.
 test:
 	go test -tags matprofile . ./contrib
 
